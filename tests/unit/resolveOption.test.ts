@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { OptionResolutionError, resolveOption, type SelectOption } from "../../src/spec/resolveOption";
+import {
+  OptionResolutionError,
+  checkOptionInput,
+  resolveOption,
+  type SelectOption,
+} from "../../src/spec/resolveOption";
 
 // Option lists copied from fixtures/pages/event-create.html
 const countries: SelectOption[] = [
@@ -110,5 +115,57 @@ describe("resolveOption: invalid input is rejected", () => {
     expect(() => resolveOption("meeting[country_id]", "Atlantis", countries)).toThrow(
       /meeting\[country_id\].*Atlantis/,
     );
+  });
+});
+
+describe("resolveOption: input scrubbing", () => {
+  it.each([NaN, Infinity, -Infinity, 1e21, 2 ** 53])("rejects the unusable number %j", (n) => {
+    expectReason(() => resolveOption("meeting[country_id]", n, countries), "invalid-type");
+  });
+
+  it("trims whitespace around an ID", () => {
+    expect(resolveOption("meeting[country_id]", " 221 ", countries)).toBe("221");
+  });
+
+  it.each(["+221", "221.0", "0x DD", "2 21"])("does not treat %j as an ID", (text) => {
+    expectReason(() => resolveOption("meeting[country_id]", text, countries), "unknown-label");
+  });
+
+  it.each([null, undefined, "", "   ", 5])("throws TypeError for an invalid field name %j", (field) => {
+    expect(() => resolveOption(field as string, "221", countries)).toThrow(TypeError);
+    expect(() => resolveOption(field as string, "221", countries)).toThrow(/field must be a non-empty string/);
+  });
+
+  it.each([null, undefined, "options", {}, 5])("throws TypeError when options is %j", (options) => {
+    expect(() => resolveOption("meeting[country_id]", "221", options as unknown as SelectOption[])).toThrow(TypeError);
+    expect(() => resolveOption("meeting[country_id]", "221", options as unknown as SelectOption[])).toThrow(/options must be an array/);
+  });
+
+  it.each([[[null]], [[{ value: 221, label: "United States" }]], [[{ value: "221" }]], [["221"]]])(
+    "throws TypeError for a malformed option entry %j",
+    (options) => {
+      expect(() => resolveOption("meeting[country_id]", "221", options as unknown as SelectOption[])).toThrow(TypeError);
+      expect(() => resolveOption("meeting[country_id]", "221", options as unknown as SelectOption[])).toThrow(/options must be an array/);
+    },
+  );
+});
+
+describe("checkOptionInput", () => {
+  it("returns the trimmed text of a string or whole number", () => {
+    expect(checkOptionInput("meeting[state_id]", "  Colorado ")).toBe("Colorado");
+    expect(checkOptionInput("meeting[state_id]", 12)).toBe("12");
+  });
+
+  it("rejects empty, negative, and wrongly-typed input", () => {
+    expectReason(() => checkOptionInput("meeting[state_id]", " "), "empty");
+    expectReason(() => checkOptionInput("meeting[state_id]", "-4"), "negative-id");
+    expectReason(() => checkOptionInput("meeting[state_id]", -4), "negative-id");
+    expectReason(() => checkOptionInput("meeting[state_id]", NaN), "invalid-type");
+    expectReason(() => checkOptionInput("meeting[state_id]", ["CO"]), "invalid-type");
+  });
+
+  it.each([null, "", 5])("throws TypeError for an invalid field name %j", (field) => {
+    expect(() => checkOptionInput(field as string, "x")).toThrow(TypeError);
+    expect(() => checkOptionInput(field as string, "x")).toThrow(/field must be a non-empty string/);
   });
 });

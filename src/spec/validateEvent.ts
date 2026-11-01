@@ -1,4 +1,4 @@
-import { parseVtoolsDateTime, VTOOLS_DATE_EXAMPLE } from "../format/vtoolsDate";
+import { InvalidDateTimeError, parseVtoolsDateTime } from "../format/vtoolsDate";
 import {
   LOCATION_TYPE_FIELD,
   MEETING_FIELDS,
@@ -66,20 +66,32 @@ export class EventValidationError extends Error {
 
 const MAX_EVENT_MS = 5 * 24 * 60 * 60 * 1000;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SINGLE_LINE_CONTROL = /[\u0000-\u001f\u007f]/;
+/** Same, but allows tab, line feed, and carriage return. */
+const MULTI_LINE_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+const SCRIPT_TAG = /<\s*script\b/i;
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+const isPlainObject = (v: unknown): v is Record<string, unknown> => {
+  if (typeof v !== "object" || v === null) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+};
 
 const isBlank = (v: unknown) => v === undefined || (typeof v === "string" && v.trim() === "");
 
-function assertNoPublish(value: unknown): void {
-  if (Array.isArray(value)) {
-    value.forEach(assertNoPublish);
-  } else if (isPlainObject(value)) {
-    for (const [key, child] of Object.entries(value)) {
-      if (key.replace(/\s/g, "").toLowerCase().includes("publish")) throw new PublishForbiddenError(key);
-      assertNoPublish(child);
-    }
+function assertNoPublish(value: unknown, seen = new WeakSet<object>()): void {
+  if (typeof value !== "object" || value === null || seen.has(value)) return;
+  seen.add(value);
+  for (const [key, child] of Object.entries(value)) {
+    if (key.replace(/\s/g, "").toLowerCase().includes("publish")) throw new PublishForbiddenError(key);
+    assertNoPublish(child, seen);
+  }
+}
+
+function assertCatalog(catalog: unknown): asserts catalog is OptionCatalog {
+  const keys: CatalogKey[] = ["category", "timezone", "country"];
+  if (typeof catalog !== "object" || catalog === null || !keys.every((k) => Array.isArray((catalog as never)[k]))) {
+    throw new TypeError(`catalog must be an object with ${keys.join(", ")} option arrays`);
   }
 }
 
@@ -126,17 +138,18 @@ function checkValue(
           return { rule: "format", message: `must be a ${def.integer ? "whole number" : "number"}` };
         }
         const n = Number(text);
+        if (def.integer && !Number.isSafeInteger(n)) {
+          return { rule: "range", message: "is too large to be a whole number" };
+        }
         if (n < def.min || (def.max !== undefined && n > def.max)) {
           return { rule: "range", message: `must be between ${def.min} and ${def.max ?? "∞"}` };
         }
-        return text;
+        return String(n);
       }
 
       case "datetime":
         if (typeof raw !== "string") return { rule: "type", message: "must be a string" };
-        if (!isBlank(raw) && parseVtoolsDateTime(raw) === null) {
-          return { rule: "format", message: `must look like "${VTOOLS_DATE_EXAMPLE}"` };
-        }
+        if (!isBlank(raw)) parseVtoolsDateTime(raw);
         return raw;
 
       case "ou-picker":
@@ -145,19 +158,34 @@ function checkValue(
         if (typeof raw !== "string") return { rule: "type", message: "must be a string" };
         const longIssue = tooLong(raw);
         if (longIssue) return longIssue;
+        const multiline = def.kind === "richtext" || (def.kind === "text" && def.multiline === true);
+        if ((multiline ? MULTI_LINE_CONTROL : SINGLE_LINE_CONTROL).test(raw)) {
+          return {
+            rule: "format",
+            message: multiline
+              ? "contains control characters (only tabs and line breaks are allowed)"
+              : "contains control characters such as line breaks or tabs",
+          };
+        }
+        if (def.kind === "richtext" && SCRIPT_TAG.test(raw)) {
+          return { rule: "format", message: "contains a <script> tag, which vTools strips out" };
+        }
         if (def.kind === "text" && def.format && !isBlank(raw)) {
-          if (def.format === "email" && !EMAIL.test(raw.trim())) {
+          const trimmed = raw.trim();
+          if (def.format === "email" && !EMAIL.test(trimmed)) {
             return { rule: "format", message: "must be an email address" };
           }
-          if (def.format === "url" && !isHttpUrl(raw.trim())) {
+          if (def.format === "url" && !isHttpUrl(trimmed)) {
             return { rule: "format", message: "must be an http:// or https:// URL" };
           }
+          return trimmed;
         }
         return raw;
       }
     }
   } catch (e) {
     if (e instanceof OptionResolutionError) return { rule: "option", message: e.message, reason: e.reason };
+    if (e instanceof InvalidDateTimeError) return { rule: "format", message: e.message };
     throw e;
   }
 }
@@ -169,6 +197,7 @@ function checkValue(
  */
 export function validateEvent(input: unknown, catalog: OptionCatalog): ValidatedEvent {
   assertNoPublish(input);
+  assertCatalog(catalog);
 
   if (!isPlainObject(input)) {
     throw new EventValidationError([
@@ -244,8 +273,9 @@ function checkSpeakerNames(input: Record<string, unknown>, issues: ValidationIss
 
 function checkDates(values: Record<string, string | boolean>, issues: ValidationIssue[]) {
   const time = (field: string) => {
+    // Only reached for values checkValue already parsed successfully; blank means "not given".
     const v = values[field];
-    return typeof v === "string" ? parseVtoolsDateTime(v) : null;
+    return typeof v === "string" && !isBlank(v) ? parseVtoolsDateTime(v) : null;
   };
 
   const start = time("meeting[start_time]");

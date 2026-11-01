@@ -234,3 +234,123 @@ describe("validateEvent: dates", () => {
     );
   });
 });
+
+describe("validateEvent: invalid arguments", () => {
+  it.each([null, undefined, {}, { category: [], timezone: [] }, { category: [], timezone: [], country: "x" }])(
+    "throws TypeError naming the catalog when it is %j",
+    (bad) => {
+      expect(() => validateEvent(validEvent, bad as never)).toThrow(/catalog/);
+      expect(() => validateEvent(validEvent, bad as never)).toThrow(TypeError);
+    },
+  );
+
+  it.each([new Map(), new Date(), new (class Event {})(), Object.create({ inherited: true })])(
+    "rejects a non-plain object at the top level (%s)",
+    (input) => {
+      expectIssue(input, "(root)", "type");
+    },
+  );
+
+  it("survives a self-referencing object instead of overflowing the stack", () => {
+    const cyclic: Record<string, unknown> = { ...validEvent };
+    cyclic.self = cyclic;
+    expectIssue(cyclic, "self", "unknown-field");
+  });
+});
+
+describe("validateEvent: input scrubbing", () => {
+  it.each(["__proto__", "constructor", "toString", "hasOwnProperty"])(
+    "reports the built-in property name %j as an unknown field",
+    (key) => {
+      const input = JSON.parse(JSON.stringify(validEvent).replace(/^\{/, `{"${key}": "x",`));
+      expectIssue(input, key, "unknown-field");
+    },
+  );
+
+  it.each([{ nested: true }, ["a", "b"], 42, true, null])("rejects the non-string %j in a text field", (value) => {
+    expectIssue({ ...validEvent, "meeting[title]": value }, "meeting[title]", "type");
+  });
+
+  it.each(["Line one\nLine two", "Tab\there", "Null\u0000byte", "Bell\u0007", "Delete\u007f"])(
+    "rejects control characters in a single-line field: %j",
+    (title) => {
+      expectIssue({ ...validEvent, "meeting[title]": title }, "meeting[title]", "format");
+    },
+  );
+
+  it("allows line breaks and tabs in multi-line fields but not other control characters", () => {
+    expect(issuesFor({ ...validEvent, "meeting[keywords]": "one\ntwo\tthree" })).toEqual([]);
+    expect(issuesFor({ ...validEvent, "meeting[description]": "<p>a</p>\r\n<p>b</p>" })).toEqual([]);
+    expectIssue({ ...validEvent, "meeting[keywords]": "bad\u0000" }, "meeting[keywords]", "format");
+    expectIssue({ ...validEvent, "meeting[description]": "<p>\u0000</p>" }, "meeting[description]", "format");
+  });
+
+  it.each(["<script>alert(1)</script>", "<p>hi</p><SCRIPT src='x.js'></SCRIPT>", "<p>hi</p><script\n>"])(
+    "rejects script tags in rich text: %j",
+    (html) => {
+      expectIssue({ ...validEvent, "meeting[description]": html }, "meeting[description]", "format");
+    },
+  );
+
+  it("trims whitespace around emails and URLs", () => {
+    const result = validateEvent(
+      {
+        ...validEvent,
+        "meeting[meeting_host][0][contact_email]": "  branch@example.org ",
+        "meeting[survey_url]": " https://example.org/s ",
+      },
+      catalog,
+    );
+    expect(result.values["meeting[meeting_host][0][contact_email]"]).toBe("branch@example.org");
+    expect(result.values["meeting[survey_url]"]).toBe("https://example.org/s");
+  });
+
+  it.each(["a b@example.org", "@example.org", "branch@", "branch@example", "branch@@example.org"])(
+    "rejects the malformed email %j",
+    (email) => {
+      expectIssue({ ...validEvent, "meeting[meeting_host][0][contact_email]": email }, "meeting[meeting_host][0][contact_email]", "format");
+    },
+  );
+
+  it.each(["https://", "ftp://example.org", "example.org", "data:text/html,hi", "http://exa mple.org"])(
+    "rejects the URL %j",
+    (url) => {
+      expectIssue({ ...validEvent, "meeting[survey_url]": url }, "meeting[survey_url]", "format");
+    },
+  );
+
+  it.each([NaN, Infinity, -Infinity, "1e3", "0x10", "", " ", "4 0"])(
+    "rejects the non-number %j in a number field",
+    (value) => {
+      expectIssue({ ...validEvent, "meeting[max_registrations]": value }, "meeting[max_registrations]", "format");
+    },
+  );
+
+  it("rejects a fractional value in a whole-number field", () => {
+    expectIssue({ ...validEvent, "meeting[max_registrations]": 2.5 }, "meeting[max_registrations]", "format");
+    expectIssue({ ...validEvent, "meeting[max_registrations]": "2.5" }, "meeting[max_registrations]", "format");
+  });
+
+  it("rejects whole numbers too large to represent exactly", () => {
+    expectIssue({ ...validEvent, "meeting[ieee_attending]": "99999999999999999999" }, "meeting[ieee_attending]", "range");
+  });
+
+  it("normalizes numbers to their plain form", () => {
+    const result = validateEvent(
+      { ...validEvent, "meeting[max_registrations]": " 040 ", "meeting[user_override_latitude]": "45.50" },
+      catalog,
+    );
+    expect(result.values["meeting[max_registrations]"]).toBe("40");
+    expect(result.values["meeting[user_override_latitude]"]).toBe("45.5");
+  });
+
+  it("treats a blank optional date/time as not given", () => {
+    expect(issuesFor({ ...validEvent, "meeting[reg_start_time]": "", "meeting[reg_end_time]": "01 Nov 2026 12:00 AM" })).toEqual([]);
+  });
+
+  it("explains why a date/time is invalid", () => {
+    const issues = issuesFor({ ...validEvent, "meeting[start_time]": "31 Feb 2026 10:00 AM" });
+    expect(issues).toContainEqual(expect.objectContaining({ field: "meeting[start_time]", rule: "format" }));
+    expect(issues[0]!.message).toMatch(/Feb/);
+  });
+});

@@ -10,7 +10,8 @@ export type FieldDef = {
   appliesTo?: { location?: readonly LocationType[]; registration?: readonly RegistrationType[] };
   maxLength?: number;
 } & (
-  | { kind: "text"; format?: "email" | "url" }
+  /** multiline: a <textarea>, where line breaks and tabs are allowed. */
+  | { kind: "text"; format?: "email" | "url"; multiline?: boolean }
   | { kind: "number"; integer: boolean; min: number; max?: number }
   | { kind: "richtext" }
   | { kind: "datetime" }
@@ -54,7 +55,7 @@ export const MEETING_FIELDS: Readonly<Record<string, FieldDef>> = {
   "meeting[header]": { kind: "richtext", maxLength: 512 },
   "meeting[footer]": { kind: "richtext", maxLength: 512 },
   "meeting[agenda]": { kind: "richtext", maxLength: 8192 },
-  "meeting[keywords]": { kind: "text", maxLength: 512, required: "always" },
+  "meeting[keywords]": { kind: "text", multiline: true, maxLength: 512, required: "always" },
   "meeting[survey_url]": { kind: "text", format: "url", maxLength: 512 },
 
   // Location
@@ -131,12 +132,22 @@ export const SPEAKER_FIELDS: Readonly<Record<string, FieldDef>> = {
 
 const SPEAKER_KEY = /^speakers\[speaker([1-9]\d*)\]\[([a-z_]+)\]$/;
 
-export function parseSpeakerKey(name: string): { index: number; prop: string } | null {
-  const m = SPEAKER_KEY.exec(name);
-  return m ? { index: Number(m[1]), prop: m[2]! } : null;
+function assertName(name: unknown): asserts name is string {
+  if (typeof name !== "string") throw new TypeError(`name must be a string, got ${JSON.stringify(name)}`);
 }
 
+/** Returns null when the name is not a speaker key (including indexes too large to be real). */
+export function parseSpeakerKey(name: string): { index: number; prop: string } | null {
+  assertName(name);
+  const m = SPEAKER_KEY.exec(name);
+  if (!m) return null;
+  const index = Number(m[1]);
+  return Number.isSafeInteger(index) ? { index, prop: m[2]! } : null;
+}
+
+/** Returns undefined when the name is not a field this tool fills. */
 export function lookupField(name: string): FieldDef | undefined {
+  assertName(name);
   if (Object.hasOwn(MEETING_FIELDS, name)) return MEETING_FIELDS[name];
   const speaker = parseSpeakerKey(name);
   if (speaker && Object.hasOwn(SPEAKER_FIELDS, speaker.prop)) return SPEAKER_FIELDS[speaker.prop];

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { readOptionCatalog } from "../../src/executor/readOptionCatalog";
+import { readOptionCatalog, readSelectOptions } from "../../src/executor/readOptionCatalog";
 import { MEETING_FIELDS, SPEAKER_FIELDS } from "../../src/spec/fields";
 import { validateEvent } from "../../src/spec/validateEvent";
 
@@ -49,5 +49,46 @@ describe("readOptionCatalog", () => {
     const result = validateEvent(example, catalog);
     expect(result.values["meeting[country_id]"]).toBe("221");
     expect(result.values["meeting[category_id]"]).toBe("2");
+  });
+});
+
+describe("readSelectOptions / readOptionCatalog: invalid input", () => {
+  const page = (body: string) => new JSDOM(`<!doctype html><body>${body}</body>`).window.document;
+
+  it("throws when no element has the name", () => {
+    expect(() => readSelectOptions(page(""), "meeting[country_id]")).toThrow(/meeting\[country_id\]/);
+  });
+
+  it("throws when the named element is not a <select>", () => {
+    expect(() => readSelectOptions(page('<input name="meeting[country_id]">'), "meeting[country_id]")).toThrow(/select/);
+  });
+
+  it("throws when the select has only a placeholder option", () => {
+    const doc = page('<select name="meeting[country_id]"><option value=""></option></select>');
+    expect(() => readSelectOptions(doc, "meeting[country_id]")).toThrow(/no selectable options/);
+  });
+
+  it("works on a document without a window", () => {
+    const doc = new JSDOM("").window.document.implementation.createHTMLDocument("");
+    doc.body.innerHTML = '<select name="x"><option value="1">One</option></select>';
+    expect(readSelectOptions(doc, "x")).toEqual([{ value: "1", label: "One" }]);
+  });
+
+  it.each([null, undefined, {}, "document"])("throws TypeError for a non-document %j", (doc) => {
+    expect(() => readSelectOptions(doc as unknown as Document, "x")).toThrow(TypeError);
+    expect(() => readSelectOptions(doc as unknown as Document, "x")).toThrow(/document must be a Document/);
+  });
+
+  it.each([null, "", 5])("throws TypeError for an invalid name %j", (name) => {
+    expect(() => readSelectOptions(document, name as string)).toThrow(TypeError);
+    expect(() => readSelectOptions(document, name as string)).toThrow(/name must be a non-empty string/);
+  });
+
+  it("throws when a page is missing one of the catalog selects", () => {
+    const doc = page(
+      '<select name="meeting[category_id]"><option value="2">Technical</option></select>' +
+        '<select name="meeting[tm_zone_info]"><option value="Etc/UTC">UTC</option></select>',
+    );
+    expect(() => readOptionCatalog(doc)).toThrow(/meeting\[country_id\]/);
   });
 });

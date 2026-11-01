@@ -28,15 +28,31 @@ const INTEGER = /^-?\d+$/;
 
 const normalize = (label: string) => label.trim().toLowerCase();
 
+function assertFieldName(field: unknown): asserts field is string {
+  if (typeof field !== "string" || field.trim() === "") {
+    throw new TypeError(`field must be a non-empty string, got ${JSON.stringify(field)}`);
+  }
+}
+
+function assertOptions(options: unknown): asserts options is readonly SelectOption[] {
+  const valid =
+    Array.isArray(options) &&
+    options.every(
+      (o) => typeof o === "object" && o !== null && typeof o.value === "string" && typeof o.label === "string",
+    );
+  if (!valid) throw new TypeError("options must be an array of { value: string, label: string }");
+}
+
 /**
  * The checks that don't need the option list: type, emptiness, and negative IDs.
  * Returns the trimmed text form of the input. Used on its own for selects whose options
  * are only loaded later by the page (state, sub-category).
  */
 export function checkOptionInput(field: string, input: unknown): string {
+  assertFieldName(field);
   let text: string;
   if (typeof input === "number") {
-    if (!Number.isInteger(input)) {
+    if (!Number.isSafeInteger(input)) {
       throw new OptionResolutionError(field, input, "invalid-type", "is not a whole-number ID");
     }
     text = String(input);
@@ -63,6 +79,7 @@ export function checkOptionInput(field: string, input: unknown): string {
  * Options with an empty value are placeholders ("Select one ...") and are never selectable.
  */
 export function resolveOption(field: string, input: unknown, options: readonly SelectOption[]): string {
+  assertOptions(options);
   const text = checkOptionInput(field, input);
   const selectable = options.filter((o) => o.value !== "");
 
