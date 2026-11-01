@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
-import type { DateTimePicker, PageEnv, RichTextEditor } from "../../src/executor/pageEnv";
+import type { DateTimePicker, PageEnv, RichTextEditor, VtoolsWindow } from "../../src/executor/pageEnv";
 
 const html = readFileSync(new URL("../../fixtures/pages/event-create.html", import.meta.url), "utf8");
 
@@ -17,12 +17,15 @@ export interface FakePageOptions {
 
 export interface FakeEditor extends RichTextEditor {
   content: string;
+  initialized: boolean;
 }
 
 export interface FakePage {
   window: JSDOM["window"];
   document: Document;
   env: PageEnv;
+  /** The same fakes shaped like the real page window, for createPageEnv. */
+  vtoolsWindow: VtoolsWindow;
   editors: Map<string, FakeEditor>;
   pickers: Map<Element, DateTimePicker>;
   /** Every element that received a click, in order. */
@@ -67,6 +70,7 @@ export function loadFakePage(options: FakePageOptions = {}): FakePage {
     for (const textarea of Array.from(root.querySelectorAll<HTMLTextAreaElement>("textarea.tinymce"))) {
       editors.set(textarea.id, {
         content: "",
+        initialized: true,
         setContent(html: string) {
           this.content = html;
         },
@@ -153,5 +157,12 @@ export function loadFakePage(options: FakePageOptions = {}): FakePage {
     sleep: (ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
   };
 
-  return { window, document, env, editors, pickers, clicks };
+  const vtoolsWindow: VtoolsWindow = {
+    document,
+    setTimeout: (handler, ms) => window.setTimeout(handler, ms),
+    tinymce: { get: (id) => editors.get(id) ?? null },
+    jQuery: (element) => ({ data: (key) => (key === "DateTimePicker" ? pickers.get(element) : undefined) }),
+  };
+
+  return { window, document, env, vtoolsWindow, editors, pickers, clicks };
 }

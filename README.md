@@ -45,6 +45,18 @@ fixtures/events/ example input JSON files
 - `npm run test:e2e`: Playwright (first run `npx playwright install chromium`)
 - `npm run build`: build the extension into `dist/`, then load it unpacked via `chrome://extensions`
 
+## Using it
+
+1. `npm run build`, then in Chrome open `chrome://extensions`, turn on Developer mode, click
+   **Load unpacked**, and choose the `dist/` folder.
+2. Sign in to vTools and open **Create an Event** (`https://events.vtools.ieee.org/tego_/event/create`).
+3. Click the extension's icon, choose your event JSON file, and click **Fill form**.
+4. Review every section, then click **Save as Draft** yourself. The tool never saves or publishes.
+
+The pop-up checks the file before anything touches the page (valid JSON, no duplicate keys, no
+publish keys). The page itself then checks every field against its own option lists before filling.
+If a step fails partway, earlier fields stay filled and vTools may already have autosaved a draft.
+
 ## Testing rule
 
 Automated tests never touch the real vTools site. Opening the real form starts autosave,

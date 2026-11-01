@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>vTools Event Filler</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1d1d1f;
+        --muted: #5f6368;
+        --border: #d0d4d9;
+        --info: #1a5fb4;
+        --success: #1e7b34;
+        --error: #b3261e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1f1f21;
+          --fg: #ececf0;
+          --muted: #a4a8ae;
+          --border: #3c3f44;
+          --info: #8ab4f8;
+          --success: #7fd18b;
+          --error: #f2b8b5;
+        }
+      }
+      body {
+        width: 360px;
+        margin: 0;
+        padding: 16px;
+        font: 14px/1.45 system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0 0 4px;
+      }
+      p.hint {
+        margin: 0 0 12px;
+        color: var(--muted);
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      input[type="file"] {
+        width: 100%;
+        margin-bottom: 12px;
+      }
+      button {
+        width: 100%;
+        padding: 8px;
+        font: inherit;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--fg);
+        color: var(--bg);
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      #result {
+        margin-top: 12px;
+        padding-left: 10px;
+        border-left: 3px solid var(--border);
+      }
+      #result:empty {
+        display: none;
+      }
+      #result[data-tone="info"] {
+        border-color: var(--info);
+      }
+      #result[data-tone="success"] {
+        border-color: var(--success);
+      }
+      #result[data-tone="error"] {
+        border-color: var(--error);
+      }
+      #result strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      #result ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>vTools Event Filler</h1>
+    <p class="hint">Fills the Create Event form from a JSON file. It never saves or publishes: you review the form and click Save as Draft yourself.</p>
+
+    <label for="event-file">Event JSON file</label>
+    <input type="file" id="event-file" accept=".json,application/json" />
+
+    <button type="button" id="fill" disabled>Fill form</button>
+
+    <div id="result" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./src/popup/main.ts"></script>
+  </body>
+</html>

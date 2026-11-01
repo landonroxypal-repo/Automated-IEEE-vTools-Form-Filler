@@ -83,13 +83,21 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => {
 
 const isBlank = (v: unknown) => v === undefined || (typeof v === "string" && v.trim() === "");
 
-function assertNoPublish(value: unknown, seen = new WeakSet<object>()): void {
+function findPublishKeys(value: unknown, seen: WeakSet<object>): void {
   if (typeof value !== "object" || value === null || seen.has(value)) return;
   seen.add(value);
   for (const [key, child] of Object.entries(value)) {
     if (key.replace(/\s/g, "").toLowerCase().includes("publish")) throw new PublishForbiddenError(key);
-    assertNoPublish(child, seen);
+    findPublishKeys(child, seen);
   }
+}
+
+/**
+ * Throws PublishForbiddenError if any key anywhere in the value mentions publishing, ignoring
+ * case and spaces. Any value is acceptable input; only publish keys are rejected.
+ */
+export function assertNoPublishKeys(value: unknown): void {
+  findPublishKeys(value, new WeakSet());
 }
 
 function assertCatalog(catalog: unknown): asserts catalog is OptionCatalog {
@@ -200,7 +208,7 @@ function checkValue(
  * problem and throws a single EventValidationError.
  */
 export function validateEvent(input: unknown, catalog: OptionCatalog): ValidatedEvent {
-  assertNoPublish(input);
+  assertNoPublishKeys(input);
   assertCatalog(catalog);
 
   if (!isPlainObject(input)) {

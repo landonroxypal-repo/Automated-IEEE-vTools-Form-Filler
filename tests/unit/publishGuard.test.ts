@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EventValidationError, PublishForbiddenError, validateEvent } from "../../src/spec/validateEvent";
+import {
+  EventValidationError,
+  PublishForbiddenError,
+  assertNoPublishKeys,
+  validateEvent,
+} from "../../src/spec/validateEvent";
 import { catalog, validEvent } from "./testData";
 
 // The tool must never be able to publish. Any JSON that so much as mentions publishing is
@@ -51,5 +56,30 @@ describe("publish guard", () => {
 
   it("allows a valid event without any publish key", () => {
     expect(() => validateEvent(validEvent, catalog)).not.toThrow();
+  });
+});
+
+describe("assertNoPublishKeys (used by the pop-up before anything reaches the page)", () => {
+  it.each([
+    { "meeting[publish]": false },
+    { " Meeting[ PUBLISH ] ": 1 },
+    { meeting: { publish: true } },
+    [{ ok: 1 }, { publish: 0 }],
+  ])("throws PublishForbiddenError for %j", (input) => {
+    expect(() => assertNoPublishKeys(input)).toThrow(PublishForbiddenError);
+  });
+
+  it("names the offending key", () => {
+    expect(() => assertNoPublishKeys({ a: { "meeting[publish]": 1 } })).toThrow(/"meeting\[publish\]"/);
+  });
+
+  it.each([validEvent, {}, [], "text", 5, null, true])("accepts input without publish keys: %j", (input) => {
+    expect(() => assertNoPublishKeys(input)).not.toThrow();
+  });
+
+  it("does not loop forever on a self-referencing object", () => {
+    const cyclic: Record<string, unknown> = { ok: 1 };
+    cyclic.self = cyclic;
+    expect(() => assertNoPublishKeys(cyclic)).not.toThrow();
   });
 });
