@@ -18,8 +18,11 @@ export type FieldDef = {
   | { kind: "checkbox" }
   | { kind: "ou-picker" }
   | { kind: "select"; options: CatalogKey }
-  /** Options are loaded by AJAX after a parent select changes, so labels can only be resolved on the page. */
-  | { kind: "dependent-select" }
+  /**
+   * Options are loaded by AJAX after the parent select changes, so labels can only be resolved on
+   * the page. parent is a full field name for meeting fields, or a sibling property for speakers.
+   */
+  | { kind: "dependent-select"; parent: string }
   | { kind: "radio"; options: readonly SelectOption[] }
 );
 
@@ -47,7 +50,7 @@ export const MEETING_FIELDS: Readonly<Record<string, FieldDef>> = {
   // Details
   "meeting[title]": { kind: "text", maxLength: 256, required: "always" },
   "meeting[category_id]": { kind: "select", options: "category", required: "always" },
-  "meeting[subcategory_id]": { kind: "dependent-select" },
+  "meeting[subcategory_id]": { kind: "dependent-select", parent: "meeting[category_id]" },
   "meeting[start_time]": { kind: "datetime", required: "always" },
   "meeting[end_time]": { kind: "datetime", required: "always" },
   "meeting[tm_zone_info]": { kind: "select", options: "timezone", required: "always" },
@@ -72,7 +75,7 @@ export const MEETING_FIELDS: Readonly<Record<string, FieldDef>> = {
   "meeting[address2]": { kind: "text", maxLength: 128, appliesTo: IN_PERSON },
   "meeting[city]": { kind: "text", maxLength: 128, appliesTo: IN_PERSON, required: "when-applicable" },
   "meeting[country_id]": { kind: "select", options: "country", appliesTo: IN_PERSON, required: "when-applicable" },
-  "meeting[state_id]": { kind: "dependent-select", appliesTo: IN_PERSON },
+  "meeting[state_id]": { kind: "dependent-select", parent: "meeting[country_id]", appliesTo: IN_PERSON },
   "meeting[postal_code]": { kind: "text", maxLength: 16, appliesTo: IN_PERSON },
   "meeting[building]": { kind: "text", maxLength: 128, appliesTo: IN_PERSON },
   "meeting[room_number]": { kind: "text", maxLength: 48, appliesTo: IN_PERSON },
@@ -123,7 +126,7 @@ export const SPEAKER_FIELDS: Readonly<Record<string, FieldDef>> = {
   address2: { kind: "text", maxLength: 128 },
   city: { kind: "text", maxLength: 128 },
   country_id: { kind: "select", options: "country" },
-  state_id: { kind: "dependent-select" },
+  state_id: { kind: "dependent-select", parent: "country_id" },
   postal_code: { kind: "text", maxLength: 64 },
   email: { kind: "text", format: "email", maxLength: 128 },
   biography: { kind: "richtext", maxLength: 8192 },
@@ -132,24 +135,55 @@ export const SPEAKER_FIELDS: Readonly<Record<string, FieldDef>> = {
 
 const SPEAKER_KEY = /^speakers\[speaker([1-9]\d*)\]\[([a-z_]+)\]$/;
 
+export class UnknownFieldError extends Error {
+  constructor(readonly fieldName: string) {
+    super(`${JSON.stringify(fieldName)} is not a field this tool can fill on the Create Event form`);
+    this.name = "UnknownFieldError";
+  }
+}
+
+export class NotASpeakerKeyError extends Error {
+  constructor(readonly fieldName: string) {
+    super(`${JSON.stringify(fieldName)} is not a speaker field name like speakers[speaker1][topic]`);
+    this.name = "NotASpeakerKeyError";
+  }
+}
+
 function assertName(name: unknown): asserts name is string {
   if (typeof name !== "string") throw new TypeError(`name must be a string, got ${JSON.stringify(name)}`);
 }
 
-/** Returns null when the name is not a speaker key (including indexes too large to be real). */
-export function parseSpeakerKey(name: string): { index: number; prop: string } | null {
+/** True for speakers[speakerN][prop] with N a positive whole number small enough to be real. */
+export function isSpeakerKey(name: string): boolean {
   assertName(name);
   const m = SPEAKER_KEY.exec(name);
-  if (!m) return null;
-  const index = Number(m[1]);
-  return Number.isSafeInteger(index) ? { index, prop: m[2]! } : null;
+  return m !== null && Number.isSafeInteger(Number(m[1]));
 }
 
-/** Returns undefined when the name is not a field this tool fills. */
-export function lookupField(name: string): FieldDef | undefined {
+/** Splits speakers[speakerN][prop]; throws NotASpeakerKeyError for anything else. */
+export function parseSpeakerKey(name: string): { index: number; prop: string } {
+  if (!isSpeakerKey(name)) throw new NotASpeakerKeyError(name);
+  const [, index, prop] = SPEAKER_KEY.exec(name)!;
+  return { index: Number(index), prop: prop! };
+}
+
+export function isKnownField(name: string): boolean {
   assertName(name);
-  if (Object.hasOwn(MEETING_FIELDS, name)) return MEETING_FIELDS[name];
-  const speaker = parseSpeakerKey(name);
-  if (speaker && Object.hasOwn(SPEAKER_FIELDS, speaker.prop)) return SPEAKER_FIELDS[speaker.prop];
-  return undefined;
+  if (Object.hasOwn(MEETING_FIELDS, name)) return true;
+  return isSpeakerKey(name) && Object.hasOwn(SPEAKER_FIELDS, parseSpeakerKey(name).prop);
+}
+
+/** Throws UnknownFieldError when the name is not a field this tool fills. */
+export function lookupField(name: string): FieldDef {
+  if (!isKnownField(name)) throw new UnknownFieldError(name);
+  if (Object.hasOwn(MEETING_FIELDS, name)) return MEETING_FIELDS[name]!;
+  return SPEAKER_FIELDS[parseSpeakerKey(name).prop]!;
+}
+
+/** The select whose choice loads a dependent select's options, e.g. country for state. */
+export function parentFieldOf(name: string): string {
+  const def = lookupField(name);
+  if (def.kind !== "dependent-select") throw new TypeError(`${name} is not a dependent select`);
+  if (!isSpeakerKey(name)) return def.parent;
+  return `speakers[speaker${parseSpeakerKey(name).index}][${def.parent}]`;
 }

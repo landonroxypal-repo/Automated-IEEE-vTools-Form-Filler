@@ -3,7 +3,10 @@ import {
   LOCATION_TYPE_FIELD,
   MEETING_FIELDS,
   REGISTRATION_TYPE_FIELD,
+  isKnownField,
+  isSpeakerKey,
   lookupField,
+  parentFieldOf,
   parseSpeakerKey,
   type CatalogKey,
   type FieldDef,
@@ -41,7 +44,7 @@ export interface ValidationIssue {
 
 export interface ValidatedEvent {
   /** Field name → value ready for the page: select/radio IDs resolved, numbers as strings. */
-  values: Record<string, string | boolean>;
+  values: Readonly<Record<string, string | boolean>>;
   locationType: LocationType;
   registrationType: RegistrationType;
 }
@@ -210,11 +213,11 @@ export function validateEvent(input: unknown, catalog: OptionCatalog): Validated
   const defs = new Map<string, FieldDef>();
 
   for (const [field, raw] of Object.entries(input)) {
-    const def = lookupField(field);
-    if (!def) {
+    if (!isKnownField(field)) {
       issues.push({ field, rule: "unknown-field", message: "is not a field this tool can fill on the Create Event form" });
       continue;
     }
+    const def = lookupField(field);
     defs.set(field, def);
     const result = checkValue(field, def, raw, catalog);
     if (typeof result === "object") issues.push({ field, ...result });
@@ -243,24 +246,41 @@ export function validateEvent(input: unknown, catalog: OptionCatalog): Validated
     ...Object.keys(MEETING_FIELDS).filter((f) => MEETING_FIELDS[f]!.required),
   ]);
   for (const field of requiredFields) {
+    if (!isKnownField(field)) continue;
     const def = lookupField(field);
-    if (!def?.required || hasIssue(field)) continue;
+    if (!def.required || hasIssue(field)) continue;
     const needed = def.required === "always" || applies(def);
     if (needed && isBlank(input[field])) issues.push({ field, rule: "required", message: "is required" });
+  }
+
+  for (const [field, def] of defs) {
+    if (def.kind !== "dependent-select") continue;
+    const parent = parentFieldOf(field);
+    if (isBlank(input[parent]) && !hasIssue(parent)) {
+      issues.push({ field: parent, rule: "required", message: `is required when ${field} is given` });
+    }
   }
 
   checkSpeakerNames(input, issues);
   checkDates(values, issues);
 
   if (issues.length > 0) throw new EventValidationError(issues);
-  return { values, locationType, registrationType };
+  const result: ValidatedEvent = Object.freeze({ values: Object.freeze(values), locationType, registrationType });
+  validatedEvents.add(result);
+  return result;
+}
+
+const validatedEvents = new WeakSet<object>();
+
+/** True only for the exact (frozen) objects returned by validateEvent. */
+export function isValidatedEvent(value: unknown): value is ValidatedEvent {
+  return typeof value === "object" && value !== null && validatedEvents.has(value);
 }
 
 function checkSpeakerNames(input: Record<string, unknown>, issues: ValidationIssue[]) {
   const speakers = new Set<number>();
   for (const key of Object.keys(input)) {
-    const s = parseSpeakerKey(key);
-    if (s) speakers.add(s.index);
+    if (isSpeakerKey(key)) speakers.add(parseSpeakerKey(key).index);
   }
   for (const n of speakers) {
     const f = (prop: string) => `speakers[speaker${n}][${prop}]`;
@@ -272,15 +292,13 @@ function checkSpeakerNames(input: Record<string, unknown>, issues: ValidationIss
 }
 
 function checkDates(values: Record<string, string | boolean>, issues: ValidationIssue[]) {
-  const time = (field: string) => {
-    // Only reached for values checkValue already parsed successfully; blank means "not given".
-    const v = values[field];
-    return typeof v === "string" && !isBlank(v) ? parseVtoolsDateTime(v) : null;
-  };
+  // values only holds date/times checkValue already parsed successfully; blank means "not given".
+  const given = (field: string) => typeof values[field] === "string" && !isBlank(values[field]);
+  const at = (field: string) => parseVtoolsDateTime(values[field] as string);
 
-  const start = time("meeting[start_time]");
-  const end = time("meeting[end_time]");
-  if (start !== null && end !== null) {
+  if (given("meeting[start_time]") && given("meeting[end_time]")) {
+    const start = at("meeting[start_time]");
+    const end = at("meeting[end_time]");
     if (end <= start) {
       issues.push({ field: "meeting[end_time]", rule: "date-order", message: "must be after the start time" });
     } else if (end - start > MAX_EVENT_MS) {
@@ -288,9 +306,9 @@ function checkDates(values: Record<string, string | boolean>, issues: Validation
     }
   }
 
-  const regStart = time("meeting[reg_start_time]");
-  const regEnd = time("meeting[reg_end_time]");
-  if (regStart !== null && regEnd !== null && regEnd <= regStart) {
-    issues.push({ field: "meeting[reg_end_time]", rule: "date-order", message: "must be after registration starts" });
+  if (given("meeting[reg_start_time]") && given("meeting[reg_end_time]")) {
+    if (at("meeting[reg_end_time]") <= at("meeting[reg_start_time]")) {
+      issues.push({ field: "meeting[reg_end_time]", rule: "date-order", message: "must be after registration starts" });
+    }
   }
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EventValidationError, validateEvent, type ValidationIssue } from "../../src/spec/validateEvent";
+import {
+  EventValidationError,
+  isValidatedEvent,
+  validateEvent,
+  type ValidationIssue,
+} from "../../src/spec/validateEvent";
 import { catalog, validEvent } from "./testData";
 
 function issuesFor(input: unknown): ValidationIssue[] {
@@ -352,5 +357,44 @@ describe("validateEvent: input scrubbing", () => {
     const issues = issuesFor({ ...validEvent, "meeting[start_time]": "31 Feb 2026 10:00 AM" });
     expect(issues).toContainEqual(expect.objectContaining({ field: "meeting[start_time]", rule: "format" }));
     expect(issues[0]!.message).toMatch(/Feb/);
+  });
+});
+
+describe("validateEvent: result integrity", () => {
+  it("returns a frozen result that cannot be edited after validation", () => {
+    const result = validateEvent(validEvent, catalog);
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.values)).toBe(true);
+    expect(() => {
+      (result.values as Record<string, unknown>)["meeting[publish]"] = true;
+    }).toThrow(TypeError);
+  });
+
+  it("marks only its own results as validated", () => {
+    const result = validateEvent(validEvent, catalog);
+    expect(isValidatedEvent(result)).toBe(true);
+    expect(isValidatedEvent({ ...result })).toBe(false);
+    expect(isValidatedEvent({ values: { ...result.values }, locationType: "physical", registrationType: "Standard" })).toBe(false);
+  });
+
+  it.each([null, undefined, 5, "event", []])("isValidatedEvent(%j) is false", (value) => {
+    expect(isValidatedEvent(value)).toBe(false);
+  });
+});
+
+describe("validateEvent: dependent selects need their parent", () => {
+  it("requires a speaker's country when the speaker's state is given", () => {
+    expectIssue({ ...validEvent, "speakers[speaker1][state_id]": "Colorado" }, "speakers[speaker1][country_id]", "required");
+  });
+
+  it("accepts a speaker state alongside its country", () => {
+    expect(
+      issuesFor({ ...validEvent, "speakers[speaker1][country_id]": "United States", "speakers[speaker1][state_id]": "Colorado" }),
+    ).toEqual([]);
+  });
+
+  it("reports a missing category only once when a sub-category is given", () => {
+    const issues = issuesFor({ ...without("meeting[category_id]"), "meeting[subcategory_id]": "ExCom" });
+    expect(issues.filter((i) => i.field === "meeting[category_id]")).toHaveLength(1);
   });
 });
