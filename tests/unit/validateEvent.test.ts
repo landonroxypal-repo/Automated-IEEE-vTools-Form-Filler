@@ -209,8 +209,46 @@ describe("validateEvent: value types and formats", () => {
 });
 
 describe("validateEvent: speakers", () => {
-  it("accepts speakers beyond the two shown on the page", () => {
-    expect(issuesFor({ ...validEvent, "speakers[speaker5][topic]": "Lightning talk" })).toEqual([]);
+  it("accepts speakers beyond the two shown on the page when numbered without gaps", () => {
+    expect(
+      issuesFor({
+        ...validEvent,
+        "speakers[speaker1][topic]": "One",
+        "speakers[speaker2][topic]": "Two",
+        "speakers[speaker3][topic]": "Three",
+      }),
+    ).toEqual([]);
+  });
+
+  it("rejects speakers that do not start at 1", () => {
+    expectIssue({ ...validEvent, "speakers[speaker2][topic]": "Two" }, "speakers[speaker1]", "speaker-numbering");
+  });
+
+  it("reports every missing speaker number in a gap", () => {
+    const issues = issuesFor({ ...validEvent, "speakers[speaker1][topic]": "One", "speakers[speaker4][topic]": "Four" });
+    const numbering = issues.filter((i) => i.rule === "speaker-numbering").map((i) => i.field);
+    expect(numbering).toEqual(["speakers[speaker2]", "speakers[speaker3]"]);
+  });
+
+  it("summarizes a large gap in one issue instead of listing every number", () => {
+    const issues = issuesFor({ ...validEvent, "speakers[speaker1][topic]": "One", "speakers[speaker1000000][topic]": "Far" });
+    const numbering = issues.filter((i) => i.rule === "speaker-numbering");
+    expect(numbering).toHaveLength(1);
+    expect(numbering[0]!.message).toMatch(/2 to 999999/);
+  });
+
+  it("treats a speaker with only blank values as missing", () => {
+    expectIssue(
+      { ...validEvent, "speakers[speaker1][topic]": "One", "speakers[speaker2][topic]": "  ", "speakers[speaker3][topic]": "Three" },
+      "speakers[speaker2]",
+      "speaker-numbering",
+    );
+    expect(issuesFor({ ...validEvent, "speakers[speaker1][topic]": "One", "speakers[speaker2][topic]": "" })).toEqual([]);
+  });
+
+  it("explains the numbering rule in the message", () => {
+    const issue = issuesFor({ ...validEvent, "speakers[speaker2][topic]": "Two" }).find((i) => i.rule === "speaker-numbering");
+    expect(issue?.message).toMatch(/1, 2, 3/);
   });
 
   it.each(["speakers[speaker0][topic]", "speakers[speaker-1][topic]", "speakers[speaker01][topic]", "speakers[speaker1][shoe_size]"])(

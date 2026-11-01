@@ -180,5 +180,14 @@ export function buildFillPlan(event: ValidatedEvent): readonly FillStep[] {
         : fields.filter((f) => Object.hasOwn(values, f) && !isBlank(values[f]!)).map((f) => stepFor(f, values[f]!));
     if (sectionSteps.length > 0) steps.push({ kind: "open-section", panelId }, ...sectionSteps);
   }
-  return Object.freeze(steps.map((s) => Object.freeze(s)));
+  const plan = Object.freeze(steps.map((s) => Object.freeze(s)));
+  fillPlans.add(plan);
+  return plan;
+}
+
+const fillPlans = new WeakSet<object>();
+
+/** True only for the exact (frozen) arrays returned by buildFillPlan. */
+export function isFillPlan(value: unknown): value is readonly FillStep[] {
+  return typeof value === "object" && value !== null && fillPlans.has(value);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FILL_STEP_KINDS, SECTION_LAYOUT, buildFillPlan, type FillStep } from "../../src/plan/buildFillPlan";
+import { FILL_STEP_KINDS, SECTION_LAYOUT, buildFillPlan, isFillPlan, type FillStep } from "../../src/plan/buildFillPlan";
 import { MEETING_FIELDS, SPEAKER_FIELDS } from "../../src/spec/fields";
 import { validateEvent } from "../../src/spec/validateEvent";
 import { catalog, validEvent } from "./testData";
@@ -190,24 +190,31 @@ describe("buildFillPlan: values", () => {
 });
 
 describe("buildFillPlan: speakers", () => {
-  it("orders speakers numerically, each with ensure-speaker and its own panel first", () => {
+  it("gives each speaker ensure-speaker and its own panel before its fields", () => {
     const steps = plan({
       ...validEvent,
-      "speakers[speaker10][topic]": "Ten",
       "speakers[speaker2][organization]": "Org",
       "speakers[speaker2][topic]": "Two",
+      "speakers[speaker1][topic]": "One",
     });
     const speakerSteps = steps.slice(indexOfPanel(steps, "_event_speakers"));
     expect(speakerSteps).toEqual([
       { kind: "open-section", panelId: "_event_speakers" },
+      { kind: "ensure-speaker", index: 1 },
+      { kind: "open-section", panelId: "_speaker1" },
+      { kind: "set-text", name: "speakers[speaker1][topic]", value: "One" },
       { kind: "ensure-speaker", index: 2 },
       { kind: "open-section", panelId: "_speaker2" },
       { kind: "set-text", name: "speakers[speaker2][topic]", value: "Two" },
       { kind: "set-text", name: "speakers[speaker2][organization]", value: "Org" },
-      { kind: "ensure-speaker", index: 10 },
-      { kind: "open-section", panelId: "_speaker10" },
-      { kind: "set-text", name: "speakers[speaker10][topic]", value: "Ten" },
     ]);
+  });
+
+  it("orders speakers numerically, so speaker10 comes after speaker9", () => {
+    const input: Record<string, unknown> = { ...validEvent };
+    for (const n of [10, 3, 1, 7, 2, 9, 4, 8, 6, 5]) input[`speakers[speaker${n}][topic]`] = `Talk ${n}`;
+    const order = plan(input).flatMap((s) => (s.kind === "ensure-speaker" ? [s.index] : []));
+    expect(order).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it("fills a speaker's fields in page order", () => {
@@ -224,5 +231,18 @@ describe("buildFillPlan: speakers", () => {
       .map((s) => (s as { name: string }).name.replace("speakers[speaker1][", "").replace("]", ""));
     expect(filled).toEqual([...filled].sort((a, b) => props.indexOf(a) - props.indexOf(b)));
     expect(filled).toEqual(["topic", "first_name", "display_name", "organization"]);
+  });
+});
+
+describe("isFillPlan", () => {
+  it("is true only for the exact plans returned by buildFillPlan", () => {
+    const steps = plan(validEvent);
+    expect(isFillPlan(steps)).toBe(true);
+    expect(isFillPlan([...steps])).toBe(false);
+    expect(isFillPlan(steps.map((s) => ({ ...s })))).toBe(false);
+  });
+
+  it.each([null, undefined, [], {}, "plan", 5])("is false for %j", (value) => {
+    expect(isFillPlan(value)).toBe(false);
   });
 });

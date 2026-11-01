@@ -33,7 +33,8 @@ export type ValidationRule =
   | "range"
   | "option"
   | "date-order"
-  | "max-duration";
+  | "max-duration"
+  | "speaker-numbering";
 
 export interface ValidationIssue {
   field: string;
@@ -262,6 +263,7 @@ export function validateEvent(input: unknown, catalog: OptionCatalog): Validated
   }
 
   checkSpeakerNames(input, issues);
+  checkSpeakerNumbering(input, issues);
   checkDates(values, issues);
 
   if (issues.length > 0) throw new EventValidationError(issues);
@@ -288,6 +290,35 @@ function checkSpeakerNames(input: Record<string, unknown>, issues: ValidationIss
     if (hasName && isBlank(input[f("display_name")]) && !issues.some((i) => i.field === f("display_name"))) {
       issues.push({ field: f("display_name"), rule: "required", message: "is required when a first or last name is given" });
     }
+  }
+}
+
+/** Gaps longer than this are reported as one range instead of one issue per number. */
+const MAX_LISTED_MISSING_SPEAKERS = 10;
+
+/** Speakers with any non-blank value must be numbered 1, 2, 3, ... with no gaps. */
+function checkSpeakerNumbering(input: Record<string, unknown>, issues: ValidationIssue[]) {
+  const present = new Set<number>();
+  for (const [key, value] of Object.entries(input)) {
+    if (isSpeakerKey(key) && !isBlank(value)) present.add(parseSpeakerKey(key).index);
+  }
+
+  const rule = "speakers must be numbered 1, 2, 3, ... without gaps";
+  let expected = 1;
+  for (const index of [...present].sort((a, b) => a - b)) {
+    const last = index - 1;
+    if (last - expected + 1 > MAX_LISTED_MISSING_SPEAKERS) {
+      issues.push({
+        field: `speakers[speaker${expected}]`,
+        rule: "speaker-numbering",
+        message: `speakers ${expected} to ${last} are missing; ${rule}`,
+      });
+    } else {
+      for (let n = expected; n <= last; n++) {
+        issues.push({ field: `speakers[speaker${n}]`, rule: "speaker-numbering", message: `speaker ${n} is missing; ${rule}` });
+      }
+    }
+    expected = index + 1;
   }
 }
 
