@@ -29,12 +29,11 @@ const INTEGER = /^-?\d+$/;
 const normalize = (label: string) => label.trim().toLowerCase();
 
 /**
- * Resolves a JSON value for a <select> field to the option value the site expects.
- * Accepts either an option value (ID) or a visible label; anything else throws, so a bad
- * value can never be silently skipped or replaced with a default.
- * Options with an empty value are placeholders ("Select one ...") and are never selectable.
+ * The checks that don't need the option list: type, emptiness, and negative IDs.
+ * Returns the trimmed text form of the input. Used on its own for selects whose options
+ * are only loaded later by the page (state, sub-category).
  */
-export function resolveOption(field: string, input: unknown, options: SelectOption[]): string {
+export function checkOptionInput(field: string, input: unknown): string {
   let text: string;
   if (typeof input === "number") {
     if (!Number.isInteger(input)) {
@@ -51,12 +50,23 @@ export function resolveOption(field: string, input: unknown, options: SelectOpti
     throw new OptionResolutionError(field, input, "empty", "is empty; remove the key to leave the field blank");
   }
 
+  if (INTEGER.test(text) && text.startsWith("-")) {
+    throw new OptionResolutionError(field, input, "negative-id", "is a negative ID; IDs are never negative");
+  }
+  return text;
+}
+
+/**
+ * Resolves a JSON value for a <select> field to the option value the site expects.
+ * Accepts either an option value (ID) or a visible label; anything else throws, so a bad
+ * value can never be silently skipped or replaced with a default.
+ * Options with an empty value are placeholders ("Select one ...") and are never selectable.
+ */
+export function resolveOption(field: string, input: unknown, options: readonly SelectOption[]): string {
+  const text = checkOptionInput(field, input);
   const selectable = options.filter((o) => o.value !== "");
 
   if (INTEGER.test(text)) {
-    if (text.startsWith("-")) {
-      throw new OptionResolutionError(field, input, "negative-id", "is a negative ID; IDs are never negative");
-    }
     if (selectable.some((o) => o.value === text)) return text;
     throw new OptionResolutionError(field, input, "unknown-id", "is not one of this field's option IDs");
   }

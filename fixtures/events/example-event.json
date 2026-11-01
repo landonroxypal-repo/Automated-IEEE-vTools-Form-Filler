@@ -5,10 +5,10 @@
   "meeting[cosponsor_name]": "",
 
   "meeting[title]": "Intro to Embedded Systems Workshop",
-  "meeting[category_id]": "2",
+  "meeting[category_id]": "Technical",
   "meeting[start_time]": "10 Nov 2026 06:00 PM",
   "meeting[end_time]": "10 Nov 2026 08:00 PM",
-  "meeting[tm_zone_info]": "America/Denver",
+  "meeting[tm_zone_info]": "Mountain Time (US & Canada)",
   "meeting[description]": "<p>A hands-on introduction to microcontrollers.</p>",
   "meeting[agenda]": "<ul><li>6:00 Welcome</li><li>6:15 Workshop</li></ul>",
   "meeting[keywords]": "embedded microcontrollers workshop",
@@ -17,7 +17,7 @@
   "meeting[building]": "Engineering Building",
   "meeting[room_number]": "101",
   "meeting[city]": "Example City",
-  "meeting[country_id]": "221",
+  "meeting[country_id]": "United States",
   "meeting[postal_code]": "00000",
 
   "meeting[reg_start_time]": "01 Nov 2026 12:00 AM",
