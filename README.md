@@ -14,7 +14,7 @@ See `fixtures/events/example-event.json`.
 | Field kind | Value |
 |---|---|
 | Text inputs | string |
-| Selects (`category_id`, `tm_zone_info`, `country_id`, …) | the `<option value>` (e.g. `"221"` = United States), not the visible label |
+| Selects (`category_id`, `tm_zone_info`, `country_id`, `state_id`, …) | the visible label (`"United States"`, case-insensitive; time zones may omit the `(UTC±hh:mm)` prefix) **or** the option ID (`"221"` / `221`). Unknown labels, unknown IDs, negative IDs, empty values, and labels that match several different IDs are errors, and the fill stops. |
 | Radios (`meeting[location_type]`) | the radio's value: `virtual` / `hybrid` / `physical` |
 | Checkboxes | `true` / `false` |
 | Date/times | vTools display format `DD MMM YYYY hh:mm A`, e.g. `10 Nov 2026 06:00 PM` |

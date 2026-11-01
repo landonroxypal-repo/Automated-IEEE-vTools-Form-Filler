@@ -1,0 +1,83 @@
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
+export type OptionResolutionReason =
+  | "empty"
+  | "invalid-type"
+  | "negative-id"
+  | "unknown-id"
+  | "unknown-label"
+  | "ambiguous-label";
+
+export class OptionResolutionError extends Error {
+  constructor(
+    readonly field: string,
+    readonly input: unknown,
+    readonly reason: OptionResolutionReason,
+    detail: string,
+  ) {
+    super(`${field}: ${JSON.stringify(input)} ${detail}`);
+    this.name = "OptionResolutionError";
+  }
+}
+
+const UTC_PREFIX = /^\(UTC[+-]\d{2}:\d{2}\)\s*/i;
+const INTEGER = /^-?\d+$/;
+
+const normalize = (label: string) => label.trim().toLowerCase();
+
+/**
+ * Resolves a JSON value for a <select> field to the option value the site expects.
+ * Accepts either an option value (ID) or a visible label; anything else throws, so a bad
+ * value can never be silently skipped or replaced with a default.
+ * Options with an empty value are placeholders ("Select one ...") and are never selectable.
+ */
+export function resolveOption(field: string, input: unknown, options: SelectOption[]): string {
+  let text: string;
+  if (typeof input === "number") {
+    if (!Number.isInteger(input)) {
+      throw new OptionResolutionError(field, input, "invalid-type", "is not a whole-number ID");
+    }
+    text = String(input);
+  } else if (typeof input === "string") {
+    text = input.trim();
+  } else {
+    throw new OptionResolutionError(field, input, "invalid-type", "must be a string label or a numeric ID");
+  }
+
+  if (text === "") {
+    throw new OptionResolutionError(field, input, "empty", "is empty; remove the key to leave the field blank");
+  }
+
+  const selectable = options.filter((o) => o.value !== "");
+
+  if (INTEGER.test(text)) {
+    if (text.startsWith("-")) {
+      throw new OptionResolutionError(field, input, "negative-id", "is a negative ID; IDs are never negative");
+    }
+    if (selectable.some((o) => o.value === text)) return text;
+    throw new OptionResolutionError(field, input, "unknown-id", "is not one of this field's option IDs");
+  }
+
+  if (selectable.some((o) => o.value === text)) return text;
+
+  const wanted = normalize(text);
+  const matches = new Set<string>();
+  for (const o of selectable) {
+    const full = normalize(o.label);
+    if (full === wanted || full.replace(UTC_PREFIX, "") === wanted) matches.add(o.value);
+  }
+
+  if (matches.size === 1) return [...matches][0]!;
+  if (matches.size > 1) {
+    throw new OptionResolutionError(
+      field,
+      input,
+      "ambiguous-label",
+      `matches several options (${[...matches].join(", ")}); use the ID instead`,
+    );
+  }
+  throw new OptionResolutionError(field, input, "unknown-label", "does not match any option label");
+}
