@@ -169,3 +169,15 @@ describe("checkOptionInput", () => {
     expect(() => checkOptionInput(field as string, "x")).toThrow(/field must be a non-empty string/);
   });
 });
+
+describe("OptionResolutionError: black-box gaps", () => {
+  it("carries the field and the original input", () => {
+    let error: OptionResolutionError | undefined;
+    try {
+      resolveOption("meeting[country_id]", " Atlantis ", countries);
+    } catch (e) {
+      error = e as OptionResolutionError;
+    }
+    expect(error).toMatchObject({ field: "meeting[country_id]", input: " Atlantis ", reason: "unknown-label" });
+  });
+});

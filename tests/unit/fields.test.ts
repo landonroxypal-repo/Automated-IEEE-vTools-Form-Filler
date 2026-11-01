@@ -91,3 +91,25 @@ describe("parentFieldOf", () => {
     }
   });
 });
+
+describe("field errors: black-box gaps", () => {
+  it("UnknownFieldError carries the field name", () => {
+    let error: UnknownFieldError | undefined;
+    try {
+      lookupField("meeting[titel]");
+    } catch (e) {
+      error = e as UnknownFieldError;
+    }
+    expect(error).toMatchObject({ fieldName: "meeting[titel]", name: "UnknownFieldError" });
+  });
+
+  it("NotASpeakerKeyError carries the field name", () => {
+    let error: NotASpeakerKeyError | undefined;
+    try {
+      parseSpeakerKey("meeting[title]");
+    } catch (e) {
+      error = e as NotASpeakerKeyError;
+    }
+    expect(error).toMatchObject({ fieldName: "meeting[title]", name: "NotASpeakerKeyError" });
+  });
+});

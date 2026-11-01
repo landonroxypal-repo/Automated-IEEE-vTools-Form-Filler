@@ -92,3 +92,16 @@ describe("readSelectOptions / readOptionCatalog: invalid input", () => {
     expect(() => readOptionCatalog(doc)).toThrow(/meeting\[country_id\]/);
   });
 });
+
+describe("readSelectOptions / readOptionCatalog: black-box gaps", () => {
+  // option.text already strips ASCII whitespace (HTML spec); &nbsp; padding is what our trim removes.
+  it("trims non-breaking-space padding around option labels but leaves values alone", () => {
+    const doc = new JSDOM('<select name="x"><option value=" 1 ">&nbsp; One &nbsp;</option></select>').window.document;
+    expect(readSelectOptions(doc, "x")).toEqual([{ value: " 1 ", label: "One" }]);
+  });
+
+  it.each([null, undefined, {}])("readOptionCatalog throws TypeError for the non-document %j", (doc) => {
+    expect(() => readOptionCatalog(doc as unknown as Document)).toThrow(TypeError);
+    expect(() => readOptionCatalog(doc as unknown as Document)).toThrow(/document must be a Document/);
+  });
+});

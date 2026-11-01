@@ -293,3 +293,73 @@ describe("executePlan: stops at the first failing step", () => {
     expect(error.message).toContain(step.kind);
   });
 });
+
+describe("executePlan: black-box gaps", () => {
+  const omit = (obj: Record<string, unknown>, ...keys: string[]) =>
+    Object.fromEntries(Object.entries(obj).filter(([k]) => !keys.includes(k)));
+
+  it("selects radio buttons that are not the page defaults", async () => {
+    const virtualExternal = {
+      ...omit(
+        baseEvent,
+        "meeting[city]",
+        "meeting[country_id]",
+        "meeting[state_id]",
+        "meeting[postal_code]",
+        "meeting[reg_start_time]",
+        "meeting[require_terms]",
+        "meeting[max_registrations]",
+      ),
+      "meeting[location_type]": "Virtual",
+      "meeting[virtual_info]": "<p>Join online</p>",
+      _registration_type: "External",
+      "meeting[registration_url]": "https://example.org/register",
+    };
+    const { page, plan } = setup(virtualExternal);
+    const radio = (name: string, value: string) =>
+      page.document.querySelector<HTMLInputElement>(`input[name="${name}"][value="${value}"]`)!;
+    expect(radio("meeting[location_type]", "physical").checked).toBe(true);
+
+    await executePlan(plan, page.env, FAST);
+
+    expect(radio("meeting[location_type]", "virtual").checked).toBe(true);
+    expect(radio("meeting[location_type]", "physical").checked).toBe(false);
+    expect(radio("_registration_type", "Custom").checked).toBe(true);
+    expect(radio("_registration_type", "Standard").checked).toBe(false);
+    expect(field(page, "meeting[registration_url]").value).toBe("https://example.org/register");
+    expect(page.editors.get("meeting_virtual_info")!.content).toBe("<p>Join online</p>");
+  });
+
+  it("chooses dependent options given as IDs", async () => {
+    const { page, plan } = setup({ ...baseEvent, "meeting[subcategory_id]": "11", "meeting[state_id]": 44 });
+    await executePlan(plan, page.env, FAST);
+    expect(field(page, "meeting[subcategory_id]").value).toBe("11");
+    expect(field(page, "meeting[state_id]").value).toBe("44");
+  });
+
+  it("names the section in the message when opening it fails", async () => {
+    const { page, plan } = setup(baseEvent, { bootstrap: false });
+    const error = await failure(executePlan(plan, page.env, FAST));
+    expect(error.message).toContain("(open-section _event_basics)");
+  });
+
+  it("names the speaker number in the message when adding a speaker fails", async () => {
+    const { page, plan } = setup(withSpeakers, { addSpeaker: false });
+    const error = await failure(executePlan(plan, page.env, FAST));
+    expect(error.message).toContain("(ensure-speaker speaker 3)");
+  });
+
+  it("explains publish-checkbox failures and says nothing will be saved", async () => {
+    const checked = setup();
+    checked.page.document.querySelector<HTMLInputElement>("#meeting_publish")!.checked = true;
+    await expect(executePlan(checked.plan, checked.page.env, FAST)).rejects.toThrow(
+      /publish checkbox is checked before filling.*never publishes; nothing will be saved/,
+    );
+
+    const missing = setup();
+    missing.page.document.querySelector("#meeting_publish")!.remove();
+    await expect(executePlan(missing.plan, missing.page.env, FAST)).rejects.toThrow(
+      /Cannot find the publish checkbox before filling/,
+    );
+  });
+});

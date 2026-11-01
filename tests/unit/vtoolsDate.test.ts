@@ -85,3 +85,15 @@ describe("parseVtoolsDateTime: invalid input throws", () => {
     expect(() => parseVtoolsDateTime("2026-11-10")).toThrow(/2026-11-10.*10 Nov 2026 06:00 PM/);
   });
 });
+
+describe("InvalidDateTimeError: black-box gaps", () => {
+  it("carries the original input", () => {
+    let error: InvalidDateTimeError | undefined;
+    try {
+      parseVtoolsDateTime("31 Feb 2026 10:00 AM");
+    } catch (e) {
+      error = e as InvalidDateTimeError;
+    }
+    expect(error).toMatchObject({ input: "31 Feb 2026 10:00 AM", reason: "out-of-range" });
+  });
+});

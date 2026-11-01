@@ -436,3 +436,20 @@ describe("validateEvent: dependent selects need their parent", () => {
     expect(issues.filter((i) => i.field === "meeting[category_id]")).toHaveLength(1);
   });
 });
+
+describe("EventValidationError: black-box gaps", () => {
+  it("lists the problem count and each field's problem in its message", () => {
+    let error: EventValidationError | undefined;
+    try {
+      validateEvent({ ...without("meeting[title]"), "meeting[meeting_host][0][contact_email]": "nope" }, catalog);
+    } catch (e) {
+      error = e as EventValidationError;
+    }
+    expect(error).toBeInstanceOf(EventValidationError);
+    expect(error!.message.split("\n")).toEqual([
+      "Event JSON has 2 problem(s):",
+      "- meeting[meeting_host][0][contact_email]: must be an email address",
+      "- meeting[title]: is required",
+    ]);
+  });
+});
