@@ -196,7 +196,7 @@ function checkValue(
       }
     }
   } catch (e) {
-    if (e instanceof OptionResolutionError) return { rule: "option", message: e.message, reason: e.reason };
+    if (e instanceof OptionResolutionError) return { rule: "option", message: e.detail, reason: e.reason };
     if (e instanceof InvalidDateTimeError) return { rule: "format", message: e.message };
     throw e;
   }

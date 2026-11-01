@@ -1,0 +1,31 @@
+{
+  "meeting[meeting_host][0][spoid]": "STB13781",
+  "meeting[meeting_host][0][contact_email]": "replace-with-your-email@example.org",
+
+  "meeting[title]": "TEST hybrid - vTools Event Filler - delete me",
+  "meeting[category_id]": "Technical",
+  "meeting[start_time]": "10 Dec 2026 09:00 AM",
+  "meeting[end_time]": "11 Dec 2026 05:00 PM",
+  "meeting[tm_zone_info]": "Eastern Time (US & Canada)",
+  "meeting[description]": "<p>Two-day hybrid event test with no registration and four speakers.</p>",
+  "meeting[keywords]": "test hybrid",
+
+  "meeting[location_type]": "Hybrid",
+  "meeting[virtual_info]": "<p>Stream: https://example.org/stream (test link)</p>",
+  "meeting[building]": "Test Hall",
+  "meeting[room_number]": "B12",
+  "meeting[city]": "Toronto",
+  "meeting[country_id]": "Canada",
+  "meeting[state_id]": "Ontario",
+
+  "_registration_type": "None",
+
+  "speakers[speaker1][topic]": "Hybrid talk one",
+  "speakers[speaker2][topic]": "Hybrid talk two",
+  "speakers[speaker3][topic]": "Hybrid talk three",
+  "speakers[speaker4][topic]": "Hybrid talk four",
+  "speakers[speaker4][first_name]": "Fourth",
+  "speakers[speaker4][last_name]": "Speaker",
+  "speakers[speaker4][display_name]": "Fourth Speaker",
+  "speakers[speaker4][biography]": "<p>Bio typed into a speaker panel that the tool added itself.</p>"
+}

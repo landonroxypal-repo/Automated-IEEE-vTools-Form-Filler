@@ -22,7 +22,9 @@ export class StepFailedError extends Error {
     cause: unknown,
   ) {
     const target = "name" in step ? step.name : "panelId" in step ? step.panelId : `speaker ${step.index}`;
-    const reason = cause instanceof Error ? cause.message : String(cause);
+    // The step header already names the field, so use the option error's message without it.
+    const reason =
+      cause instanceof OptionResolutionError ? cause.detail : cause instanceof Error ? cause.message : String(cause);
     super(`Step ${stepIndex + 1} of ${total} (${step.kind} ${target}) failed: ${reason}`, { cause });
     this.name = "StepFailedError";
   }

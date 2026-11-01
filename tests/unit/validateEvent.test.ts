@@ -453,3 +453,10 @@ describe("EventValidationError: black-box gaps", () => {
     ]);
   });
 });
+
+describe("validateEvent: option issue messages", () => {
+  it("does not repeat the field name inside the issue message", () => {
+    const issue = issuesFor({ ...validEvent, "meeting[country_id]": "Atlantis" }).find((i) => i.field === "meeting[country_id]");
+    expect(issue?.message).toBe('"Atlantis" does not match any option label');
+  });
+});

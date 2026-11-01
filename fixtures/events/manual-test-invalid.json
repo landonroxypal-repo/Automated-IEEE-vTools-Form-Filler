@@ -1,0 +1,14 @@
+{
+  "meeting[meeting_host][0][spoid]": "STB13781",
+  "meeting[meeting_host][0][contact_email]": "replace-with-your-email@example.org",
+
+  "meeting[title]": "TEST invalid - vTools Event Filler",
+  "meeting[category_id]": "Technical",
+  "meeting[start_time]": "12 Dec 2026 06:00 PM",
+  "meeting[end_time]": "12 Dec 2026 05:00 PM",
+  "meeting[tm_zone_info]": "Mountain Time (US & Canada)",
+  "meeting[description]": "<p>Should be rejected before anything is filled.</p>",
+
+  "meeting[city]": "Nowhere",
+  "meeting[country_id]": "Atlantis"
+}

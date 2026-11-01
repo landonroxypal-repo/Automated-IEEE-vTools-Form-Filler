@@ -181,3 +181,16 @@ describe("OptionResolutionError: black-box gaps", () => {
     expect(error).toMatchObject({ field: "meeting[country_id]", input: " Atlantis ", reason: "unknown-label" });
   });
 });
+
+describe("OptionResolutionError: detail without the field name", () => {
+  it("offers the message without the field prefix for callers that already show the field", () => {
+    let error: OptionResolutionError | undefined;
+    try {
+      resolveOption("meeting[country_id]", " Atlantis ", countries);
+    } catch (e) {
+      error = e as OptionResolutionError;
+    }
+    expect(error!.detail).toBe('" Atlantis " does not match any option label');
+    expect(error!.message).toBe(`meeting[country_id]: ${error!.detail}`);
+  });
+});

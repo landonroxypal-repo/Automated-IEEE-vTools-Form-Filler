@@ -1,0 +1,29 @@
+{
+  "meeting[meeting_host][0][spoid]": "STB13781",
+  "meeting[meeting_host][0][contact_email]": "replace-with-your-email@example.org",
+
+  "meeting[title]": "TEST - vTools Event Filler - delete me",
+  "meeting[category_id]": "Administrative",
+  "meeting[subcategory_id]": "ExCom",
+  "meeting[start_time]": "05 Dec 2026 06:00 PM",
+  "meeting[end_time]": "05 Dec 2026 08:00 PM",
+  "meeting[tm_zone_info]": "Mountain Time (US & Canada)",
+  "meeting[description]": "<p>Automated test of the vTools Event Filler. <strong>Delete this draft.</strong></p>",
+  "meeting[keywords]": "test",
+
+  "meeting[location_type]": "In-Person",
+  "meeting[building]": "Test Building",
+  "meeting[city]": "Denver",
+  "meeting[country_id]": "United States",
+  "meeting[state_id]": "Colorado",
+  "meeting[postal_code]": "80202",
+
+  "meeting[max_registrations]": 25,
+
+  "speakers[speaker1][topic]": "Test talk one",
+  "speakers[speaker1][first_name]": "Test",
+  "speakers[speaker1][last_name]": "Speaker",
+  "speakers[speaker1][display_name]": "Test Speaker",
+  "speakers[speaker2][topic]": "Test talk two",
+  "speakers[speaker3][topic]": "Test talk three"
+}

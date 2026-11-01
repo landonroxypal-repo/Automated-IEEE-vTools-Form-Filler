@@ -1,0 +1,19 @@
+{
+  "meeting[meeting_host][0][spoid]": "STB13781 - University of Washington Tacoma",
+  "meeting[meeting_host][0][contact_email]": "cstamey@gmail.com",
+
+  "meeting[title]": "IEEE Officers meeting",
+  "meeting[category_id]": "Administrative",
+  "meeting[subcategory_id]": "ExCom",
+  "meeting[start_time]": "06 Dec 2026 05:00 PM",
+  "meeting[end_time]": "08 Dec 2026 07:00 PM",
+  "meeting[tm_zone_info]": "Pacific Time (US & Canada)",
+  "meeting[description]": "<p> Super awesome event n stuff. <strong>Delete this draft.</strong></p>",
+  "meeting[keywords]": "#test",
+
+  "meeting[location_type]": "In-Person",
+  "meeting[building]": "Cherry Parkes",
+  "meeting[city]": "Tacoma",
+  "meeting[country_id]": "United States",
+  "meeting[state_id]": "Washington"
+}

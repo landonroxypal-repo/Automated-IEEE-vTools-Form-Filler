@@ -12,13 +12,18 @@ export type OptionResolutionReason =
   | "ambiguous-label";
 
 export class OptionResolutionError extends Error {
+  /** The message without the field name, for places that already show the field. */
+  readonly detail: string;
+
   constructor(
     readonly field: string,
     readonly input: unknown,
     readonly reason: OptionResolutionReason,
     detail: string,
   ) {
-    super(`${field}: ${JSON.stringify(input)} ${detail}`);
+    const withoutField = `${JSON.stringify(input)} ${detail}`;
+    super(`${field}: ${withoutField}`);
+    this.detail = withoutField;
     this.name = "OptionResolutionError";
   }
 }

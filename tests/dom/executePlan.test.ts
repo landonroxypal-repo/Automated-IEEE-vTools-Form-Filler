@@ -363,3 +363,12 @@ describe("executePlan: black-box gaps", () => {
     );
   });
 });
+
+describe("executePlan: option failure messages", () => {
+  it("names the field once when a dependent option cannot be resolved", async () => {
+    const { page, plan } = setup({ ...baseEvent, "meeting[state_id]": "Atlantis" });
+    const error = await failure(executePlan(plan, page.env, FAST));
+    expect(error.message).toContain('(set-dependent-select meeting[state_id]) failed: "Atlantis" does not match any option label');
+    expect(error.message.split("meeting[state_id]")).toHaveLength(2);
+  });
+});
