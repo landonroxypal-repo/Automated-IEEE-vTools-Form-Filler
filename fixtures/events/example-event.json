@@ -1,0 +1,33 @@
+{
+  "meeting[meeting_host][0][spoid]": "STB13781",
+  "meeting[meeting_host][0][contact_email]": "branch-contact@example.org",
+  "meeting[meeting_host][0][contact_registration_notification]": false,
+  "meeting[cosponsor_name]": "",
+
+  "meeting[title]": "Intro to Embedded Systems Workshop",
+  "meeting[category_id]": "2",
+  "meeting[start_time]": "10 Nov 2026 06:00 PM",
+  "meeting[end_time]": "10 Nov 2026 08:00 PM",
+  "meeting[tm_zone_info]": "America/Denver",
+  "meeting[description]": "<p>A hands-on introduction to microcontrollers.</p>",
+  "meeting[agenda]": "<ul><li>6:00 Welcome</li><li>6:15 Workshop</li></ul>",
+  "meeting[keywords]": "embedded microcontrollers workshop",
+
+  "meeting[location_type]": "physical",
+  "meeting[building]": "Engineering Building",
+  "meeting[room_number]": "101",
+  "meeting[city]": "Example City",
+  "meeting[country_id]": "221",
+  "meeting[postal_code]": "00000",
+
+  "meeting[reg_start_time]": "01 Nov 2026 12:00 AM",
+  "meeting[reg_end_time]": "10 Nov 2026 12:00 PM",
+  "meeting[max_registrations]": "40",
+  "meeting[require_terms]": true,
+
+  "speakers[speaker1][topic]": "Getting started with microcontrollers",
+  "speakers[speaker1][first_name]": "Jane",
+  "speakers[speaker1][last_name]": "Doe",
+  "speakers[speaker1][display_name]": "Jane Doe",
+  "speakers[speaker1][organization]": "Example University"
+}

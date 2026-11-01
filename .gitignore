@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+
+# Raw page captures contain session CSRF tokens and personal info — only commit sanitized copies
+fixtures/pages/*.raw.html

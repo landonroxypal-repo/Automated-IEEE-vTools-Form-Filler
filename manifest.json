@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "vTools Event Filler",
+  "version": "0.1.0",
+  "description": "Fills the IEEE vTools 'Create an Event' form from a JSON file and stops at Save as Draft for review.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://events.vtools.ieee.org/*"],
+  "action": {
+    "default_title": "Fill vTools event from JSON",
+    "default_popup": "popup.html"
+  }
+}
